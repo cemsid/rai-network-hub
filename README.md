@@ -2,7 +2,7 @@
 
 A real-time validator monitoring dashboard for the Republic AI Network, built with vanilla HTML/CSS/JavaScript and powered by live RPC data.
 
-🔗 **Live:** [http://139.162.171.203](http://139.162.171.203)
+🔗 **Live:** [[http://139.162.171.203](http://139.162.171.203)](https://cemsid.github.io/rai-network-hub/)
 
 ---
 
