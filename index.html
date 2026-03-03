@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Republic AI Network — Validator Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --bg2: #0f1117;
+    --bg3: #141720;
+    --card: #13161f;
+    --card2: #181c27;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --p1: #7c3aed;
+    --a1: #06b6d4;
+    --g1: #10b981;
+    --r1: #ef4444;
+    --y1: #f59e0b;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --grad1: linear-gradient(135deg,#7c3aed,#06b6d4);
+    --grad2: linear-gradient(135deg,#10b981,#06b6d4);
+    --grad3: linear-gradient(135deg,#f59e0b,#ef4444);
+    --grad4: linear-gradient(135deg,#ec4899,#7c3aed);
+    --glow: 0 0 30px rgba(124,58,237,0.3);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;}
+  #bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;opacity:0.35;pointer-events:none;}
+  .page-wrap{position:relative;z-index:1;}
+
+  /* LOADER */
+  #loader{position:fixed;inset:0;background:#06080f;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:24px;transition:opacity 0.6s ease;}
+  #loader.hidden{opacity:0;pointer-events:none;}
+  .loader-logo{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:6px;background:var(--grad1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:pulse 2s ease-in-out infinite;}
+  .loader-sub{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;}
+  .loader-bar-wrap{width:260px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;}
+  .loader-bar{height:100%;background:var(--grad1);border-radius:99px;animation:loadprog 2.2s ease-in-out forwards;}
+  @keyframes loadprog{from{width:0%}to{width:100%}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  /* HEADER */
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);background:rgba(10,11,15,0.85);backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;}
+  .logo-area{display:flex;align-items:center;gap:14px;}
+  .logo-icon{width:40px;height:40px;border-radius:10px;background:var(--grad1);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:var(--glow);}
+  .logo-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;background:var(--grad1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .logo-tag{font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:-4px;}
+  .header-right{display:flex;align-items:center;gap:20px;}
+  .chain-badge{display:flex;align-items:center;gap:8px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:8px;padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--p1);}
+  .chain-dot{width:7px;height:7px;border-radius:50%;background:var(--g1);animation:blink 1.4s ease-in-out infinite;box-shadow:0 0 8px var(--g1);}
+  .sync-badge{font-size:11px;padding:5px 12px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:var(--g1);font-weight:600;letter-spacing:1px;}
+
+  /* MAIN */
+  main{padding:28px 32px;max-width:1600px;margin:0 auto;}
+
+  /* STAT CARDS */
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.2s;}
+  .stat-card:hover{border-color:var(--border2);transform:translateY(-2px);}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .stat-card.p1::before{background:var(--grad1);}
+  .stat-card.p2::before{background:var(--grad2);}
+  .stat-card.p3::before{background:var(--grad3);}
+  .stat-card.p4::before{background:var(--grad4);}
+  .stat-card.p5::before{background:linear-gradient(135deg,#06b6d4,#10b981);}
+  .stat-icon{font-size:22px;margin-bottom:10px;}
+  .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:6px;font-weight:600;}
+  .stat-val{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;color:var(--text);}
+  .stat-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+
+  /* SECTION HDR */
+  .section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .section-hdr h2{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--text);}
+  .section-hdr .badge{font-size:10px;padding:3px 10px;border-radius:99px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:var(--p1);letter-spacing:1px;text-transform:uppercase;font-weight:700;}
+  .section-line{flex:1;height:1px;background:var(--border);}
+
+  /* TOP ROW */
+  .top-row{display:grid;grid-template-columns:1fr 340px;gap:20px;margin-bottom:28px;}
+
+  /* TABLE CARD */
+  .table-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .table-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--card2);}
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{padding:11px 16px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);white-space:nowrap;}
+  tbody tr{border-bottom:1px solid var(--border);transition:background 0.15s;}
+  tbody tr:hover{background:rgba(255,255,255,0.03);}
+  tbody tr:last-child{border-bottom:none;}
+  tbody td{padding:11px 16px;vertical-align:middle;white-space:nowrap;}
+  .val-identity{display:flex;align-items:center;gap:10px;}
+  .val-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#fff;flex-shrink:0;}
+  .val-name{font-weight:600;font-size:13px;color:var(--text);}
+  .val-addr{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:1px;}
+  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;}
+  .rank-1{background:rgba(251,191,36,0.2);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);}
+  .rank-2{background:rgba(148,163,184,0.2);color:#94a3b8;border:1px solid rgba(148,163,184,0.3);}
+  .rank-3{background:rgba(180,83,9,0.2);color:#b45309;border:1px solid rgba(180,83,9,0.3);}
+  .rank-n{background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border);}
+  .power-wrap{display:flex;align-items:center;gap:8px;}
+  .power-bar-bg{width:70px;height:5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;}
+  .power-bar-fill{height:100%;border-radius:99px;background:var(--grad1);}
+  .power-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);}
+  .uptime-pct{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;}
+  .uptime-high{color:var(--g1);}
+  .uptime-med{color:var(--y1);}
+  .uptime-low{color:var(--r1);}
+  .miss-dots{display:flex;gap:3px;align-items:center;}
+  .miss-dot{width:10px;height:10px;border-radius:3px;transition:all 0.3s;}
+  .miss-dot.ok{background:rgba(16,185,129,0.7);}
+  .miss-dot.miss{background:rgba(239,68,68,0.85);box-shadow:0 0 6px rgba(239,68,68,0.5);}
+
+  /* LIVE BLOCK FEED */
+  .block-feed{background:var(--card);border:1px solid var(--border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;}
+  .feed-header{padding:18px 20px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;align-items:center;justify-content:space-between;}
+  .feed-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text);}
+  .live-pill{display:flex;align-items:center;gap:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:99px;padding:3px 10px;font-size:10px;color:#ef4444;font-weight:700;letter-spacing:1px;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:blink 1s ease-in-out infinite;}
+  .feed-list{flex:1;overflow-y:auto;max-height:580px;padding:8px;}
+  .feed-list::-webkit-scrollbar{width:4px;}
+  .feed-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
+  .block-item{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;transition:border-color 0.3s;animation:slideIn 0.35s ease;cursor:pointer;}
+  .block-item:hover{border-color:rgba(124,58,237,0.4);}
+  .block-item.new-block{border-color:rgba(16,185,129,0.5);animation:slideIn 0.35s ease,glowIn 0.8s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  @keyframes glowIn{0%,100%{box-shadow:none}40%{box-shadow:0 0 16px rgba(16,185,129,0.3)}}
+  .block-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .block-num{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;background:var(--grad1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .block-ago{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+  .block-row2{display:flex;align-items:center;justify-content:space-between;font-size:11px;}
+  .block-prop{color:var(--text2);font-weight:500;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .block-txs{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--a1);background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:2px 7px;}
+  .block-miss-badge{font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--r1);font-weight:600;}
+
+  /* CHARTS */
+  .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;position:relative;overflow:hidden;}
+  .chart-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--text2);margin-bottom:14px;}
+
+  /* NETWORK ROW */
+  .network-row{display:grid;grid-template-columns:1fr 2fr;gap:20px;margin-bottom:28px;}
+
+  /* HEALTH */
+  .health-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .health-ring-wrap{position:relative;width:140px;height:140px;}
+  .health-ring-val{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .health-ring-pct{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:1px;background:var(--grad2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+  .health-ring-lbl{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--text3);}
+  .health-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;}
+  .health-stat{text-align:center;}
+  .health-stat-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--text);}
+  .health-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-top:2px;}
+
+  /* ECONOMICS */
+  .economics-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;}
+  .econ-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+  .econ-item{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .econ-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .econ-item.e1::before{background:var(--grad1);}
+  .econ-item.e2::before{background:var(--grad2);}
+  .econ-item.e3::before{background:var(--grad3);}
+  .econ-item.e4::before{background:var(--grad4);}
+  .econ-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px;}
+  .econ-val{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1px;color:var(--text);line-height:1;}
+  .econ-sub{font-size:10px;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+
+  /* LEADERBOARD */
+  .lb-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}
+  .leaderboard-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .lb-item{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+  .lb-item:last-child{border-bottom:none;}
+  .lb-item:hover{background:rgba(255,255,255,0.02);}
+  .lb-rank{font-family:'Bebas Neue',sans-serif;font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+  .lb-rank.g{color:#fbbf24;}
+  .lb-rank.s{color:#94a3b8;}
+  .lb-rank.b{color:#b45309;}
+  .lb-rank.n{color:var(--text3);}
+  .lb-avatar{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:#fff;flex-shrink:0;}
+  .lb-info{flex:1;min-width:0;}
+  .lb-name{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb-score-row{display:flex;align-items:center;gap:8px;margin-top:3px;}
+  .lb-score-bar-bg{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;}
+  .lb-score-bar{height:100%;border-radius:99px;}
+  .lb-score-txt{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;flex-shrink:0;}
+  .lb-miss-count{font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right;flex-shrink:0;}
+
+  /* EXPLORER */
+  .explorer-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:28px;}
+  .exp-hash{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a1);}
+  .exp-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);}
+  .tx-badge{display:inline-flex;align-items:center;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:3px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a1);}
+  .miss-warn{display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--r1);}
+
+  /* TOAST */
+  #toastArea{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:10px;max-width:340px;}
+  .toast{background:var(--card2);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:14px 16px;animation:toastIn 0.3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  .toast-title{font-size:12px;font-weight:700;color:var(--r1);margin-bottom:4px;}
+  .toast-body{font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace;}
+
+  /* BLOBS */
+  .blob{position:fixed;border-radius:50%;filter:blur(80px);opacity:0.07;pointer-events:none;z-index:0;}
+  .blob1{width:500px;height:500px;background:#7c3aed;top:-100px;left:-100px;}
+  .blob2{width:400px;height:400px;background:#06b6d4;bottom:200px;right:-80px;}
+  .blob3{width:300px;height:300px;background:#10b981;bottom:-50px;left:40%;}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:99px;}
+
+  @media(max-width:1200px){
+    .stats-grid{grid-template-columns:repeat(3,1fr);}
+    .top-row{grid-template-columns:1fr;}
+    .charts-row{grid-template-columns:1fr;}
+    .network-row{grid-template-columns:1fr;}
+    .lb-grid{grid-template-columns:1fr;}
+  }
+  @media(max-width:768px){
+    main{padding:16px;}
+    header{padding:14px 16px;}
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .econ-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+<canvas id="bgCanvas"></canvas>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">REPUBLIC AI</div>
+  <div class="loader-sub">● Connecting to Node ●</div>
+  <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+</div>
+
+<div class="page-wrap">
+  <header>
+    <div class="logo-area">
+      <div class="logo-icon">⬡</div>
+      <div>
+        <div class="logo-text">Republic AI Network</div>
+        <div class="logo-tag">Validator Dashboard</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="chain-badge"><div class="chain-dot"></div><span id="chainId">rai-testnet-1</span></div>
+      <div class="sync-badge" id="syncStatus">● SYNCING</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card p1">
+        <div class="stat-icon">📦</div>
+        <div class="stat-label">Latest Block</div>
+        <div class="stat-val" id="statBlock">—</div>
+        <div class="stat-sub" id="statBlockTime">avg — ms</div>
+      </div>
+      <div class="stat-card p2">
+        <div class="stat-icon">🛡️</div>
+        <div class="stat-label">Active Validators</div>
+        <div class="stat-val" id="statVals">—</div>
+        <div class="stat-sub" id="statMissing">0 missing</div>
+      </div>
+      <div class="stat-card p3">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-label">Miss Rate</div>
+        <div class="stat-val" id="statMissRate">—</div>
+        <div class="stat-sub">last 10 blocks</div>
+      </div>
+      <div class="stat-card p4">
+        <div class="stat-icon">💚</div>
+        <div class="stat-label">Network Health</div>
+        <div class="stat-val" id="statHealth">—</div>
+        <div class="stat-sub" id="statHealthSub">calculating...</div>
+      </div>
+      <div class="stat-card p5">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-label">Total Voting Power</div>
+        <div class="stat-val" id="statTotalPower">—</div>
+        <div class="stat-sub">bonded stake</div>
+      </div>
+    </div>
+
+    <!-- VALIDATOR TABLE + LIVE FEED -->
+    <div class="top-row">
+      <div class="table-card">
+        <div class="table-header">
+          <div class="section-hdr" style="margin-bottom:0;">
+            <h2>Validator Set</h2>
+            <span class="badge">MISS MONITOR</span>
+          </div>
+          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">100 validators · last 10 blocks</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Validator</th>
+                <th>Voting Power</th>
+                <th>Uptime</th>
+                <th>Last 10 Blocks</th>
+                <th>Misses</th>
+              </tr>
+            </thead>
+            <tbody id="valTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block-feed">
+        <div class="feed-header">
+          <div class="feed-title">Live Block Feed</div>
+          <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+        </div>
+        <div class="feed-list" id="blockFeed"></div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="section-hdr"><h2>Network Statistics</h2><span class="badge">LIVE CHARTS</span><div class="section-line"></div></div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Miss Distribution — Last 20 Blocks</div>
+        <div style="position:relative;height:180px;"><canvas id="missChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Block Time History (ms)</div>
+        <div style="position:relative;height:180px;"><canvas id="btChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- NETWORK HEALTH + ECONOMICS -->
+    <div class="network-row">
+      <div class="health-card">
+        <div class="section-hdr" style="margin-bottom:0;width:100%;"><h2>Network Health</h2><div class="section-line"></div></div>
+        <div class="health-ring-wrap">
+          <canvas id="healthRing" width="140" height="140"></canvas>
+          <div class="health-ring-val">
+            <div class="health-ring-pct" id="healthPct">—%</div>
+            <div class="health-ring-lbl">health</div>
+          </div>
+        </div>
+        <div class="health-stats">
+          <div class="health-stat"><div class="health-stat-val" id="hStatActive">—</div><div class="health-stat-lbl">Active</div></div>
+          <div class="health-stat"><div class="health-stat-val" style="color:var(--r1);" id="hStatMiss">—</div><div class="health-stat-lbl">Missed</div></div>
+          <div class="health-stat"><div class="health-stat-val" style="color:var(--a1);" id="hStatBlocks">—</div><div class="health-stat-lbl">Height</div></div>
+          <div class="health-stat"><div class="health-stat-val" style="color:var(--y1);" id="hStatAvgMiss">—</div><div class="health-stat-lbl">Avg Miss</div></div>
+        </div>
+      </div>
+
+      <div class="economics-card">
+        <div class="section-hdr" style="margin-bottom:16px;"><h2>Staking & Economics</h2><span class="badge">LIVE</span><div class="section-line"></div></div>
+        <div class="econ-grid">
+          <div class="econ-item e1"><div class="econ-lbl">Total Bonded Power</div><div class="econ-val" id="econBonded">—</div><div class="econ-sub" id="econBondedSub">calculating...</div></div>
+          <div class="econ-item e2"><div class="econ-lbl">Avg Voting Power</div><div class="econ-val" id="econAvgPower">—</div><div class="econ-sub">per validator</div></div>
+          <div class="econ-item e3"><div class="econ-lbl">Top Validator Share</div><div class="econ-val" id="econTopShare">—</div><div class="econ-sub" id="econTopName">—</div></div>
+          <div class="econ-item e4"><div class="econ-lbl">Nakamoto Coefficient</div><div class="econ-val" id="econNakamoto">—</div><div class="econ-sub">validators for 33%</div></div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:10px;">Top 10 Power Distribution</div>
+          <div style="position:relative;height:120px;"><canvas id="powerBar"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="section-hdr"><h2>Top Validators Leaderboard</h2><span class="badge">PERFORMANCE</span><div class="section-line"></div></div>
+    <div class="lb-grid">
+      <div class="leaderboard-card">
+        <div class="feed-header"><div class="feed-title">🏆 Best Uptime</div><span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;">TOP 10</span></div>
+        <div id="lbBest"></div>
+      </div>
+      <div class="leaderboard-card">
+        <div class="feed-header"><div class="feed-title">⚠️ Most Missed</div><span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;">TOP 10</span></div>
+        <div id="lbWorst"></div>
+      </div>
+    </div>
+
+    <!-- BLOCK EXPLORER -->
+    <div class="section-hdr"><h2>Block Explorer</h2><span class="badge">LIVE</span><div class="section-line"></div></div>
+    <div class="explorer-card">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Height</th>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Hash</th>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Proposer</th>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Txs</th>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Missed</th>
+            <th style="padding:11px 18px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">Time</th>
+          </tr>
+        </thead>
+        <tbody id="explorerTable"></tbody>
+      </table>
+    </div>
+
+    <div style="text-align:center;padding:20px 0 30px;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border);">
+      REPUBLIC AI NETWORK VALIDATOR DASHBOARD · LIVE DATA VIA RPC ·
+      <span id="footerUpdate" style="color:var(--p1);">updating...</span>
+    </div>
+  </main>
+</div>
+
+<div id="toastArea"></div>
+
+<script>
+// PARTICLE BG
+(function(){
+  const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
+  let W,H,pts;
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  function mkPts(){pts=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*0.3,vy:(Math.random()-.5)*0.3,r:Math.random()*1.5+0.5}));}
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(124,58,237,0.6)';ctx.fill();
+      for(let j=i+1;j<pts.length;j++){
+        const q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<130){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.strokeStyle=`rgba(124,58,237,${0.12*(1-d/130)})`;ctx.lineWidth=0.6;ctx.stroke();}
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',()=>{resize();mkPts();});
+  resize();mkPts();draw();
+})();
+
+// STATE
+const COLORS=[
+  'linear-gradient(135deg,#7c3aed,#06b6d4)',
+  'linear-gradient(135deg,#10b981,#06b6d4)',
+  'linear-gradient(135deg,#f59e0b,#ef4444)',
+  'linear-gradient(135deg,#ec4899,#7c3aed)',
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#14b8a6,#10b981)',
+  'linear-gradient(135deg,#f97316,#f59e0b)',
+  'linear-gradient(135deg,#e11d48,#ec4899)',
+];
+
+const S={
+  validators:[],
+  blocks:[],
+  blockTimes:[],
+  totalPower:0,
+  latestHeight:0,
+  lastBlockTime:null,
+  initialized:false,
+};
+
+const RPC="http://139.162.171.203/rpc", API="http://139.162.171.203/api";
+
+// CHARTS
+let missChart,btChart,healthChart,powerChart;
+
+function initCharts(){
+  const base={
+    responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10,family:'JetBrains Mono'}}},
+      y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10,family:'JetBrains Mono'}}}
+    }
+  };
+  missChart=new Chart(document.getElementById('missChart'),{
+    type:'bar',
+    data:{labels:[],datasets:[{data:[],backgroundColor:'rgba(239,68,68,0.55)',borderColor:'rgba(239,68,68,0.9)',borderWidth:1,borderRadius:4}]},
+    options:{...base,animation:{duration:400}}
+  });
+  btChart=new Chart(document.getElementById('btChart'),{
+    type:'line',
+    data:{labels:[],datasets:[{data:[],borderColor:'rgba(124,58,237,0.9)',backgroundColor:'rgba(124,58,237,0.1)',borderWidth:2,pointRadius:3,pointBackgroundColor:'rgba(124,58,237,1)',tension:0.4,fill:true}]},
+    options:{...base,animation:{duration:400}}
+  });
+  healthChart=new Chart(document.getElementById('healthRing'),{
+    type:'doughnut',
+    data:{datasets:[{data:[100,0],backgroundColor:['rgba(16,185,129,0.85)','rgba(255,255,255,0.05)'],borderWidth:0,cutout:'75%'}]},
+    options:{responsive:false,plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:800}}
+  });
+  powerChart=new Chart(document.getElementById('powerBar'),{
+    type:'bar',
+    data:{labels:[],datasets:[{data:[],backgroundColor:['rgba(124,58,237,0.7)','rgba(6,182,212,0.7)','rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(236,72,153,0.7)','rgba(99,102,241,0.7)','rgba(20,184,166,0.7)','rgba(249,115,22,0.7)','rgba(225,29,72,0.7)','rgba(124,58,237,0.5)'],borderRadius:3,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmtPower(ctx.raw)} power`}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10,family:'JetBrains Mono'},callback:v=>fmtPower(v)}},
+        y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:11}}}
+      },
+      animation:{duration:600}
+    }
+  });
+}
+
+// FETCH
+async function fetchJSON(url){const r=await fetch(url);return r.json();}
+
+async function fetchValidators(){
+  const d=await fetchJSON(`${RPC}/validators?per_page=100`);
+  return d.result;
+}
+async function fetchStatus(){
+  const d=await fetchJSON(`${RPC}/status`);
+  return d.result;
+}
+async function fetchBlock(h){
+  const url=h?`${RPC}/block?height=${h}`:`${RPC}/block`;
+  const d=await fetchJSON(url);
+  return d.result;
+}
+async function fetchCommit(h){
+  const d=await fetchJSON(`${RPC}/commit?height=${h}`);
+  return d.result;
+}
+async function fetchMonikers(){
+  try{
+    const d=await fetchJSON(`${API}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100`);
+    if(d.validators){
+      const sorted=[...d.validators].sort((a,b)=>parseInt(b.tokens)-parseInt(a.tokens));
+      S.validators.forEach((v,i)=>{if(!v.moniker&&sorted[i])v.moniker=sorted[i].description?.moniker||null;});
+    }
+  }catch(e){console.warn('Moniker fetch failed',e);}
+}
+
+// INIT
+async function init(){
+  try{
+    const status=await fetchStatus();
+    const chainId=status.node_info?.network||'rai-testnet-1';
+    document.getElementById('chainId').textContent=chainId;
+    const synced=!status.sync_info?.catching_up;
+    const se=document.getElementById('syncStatus');
+    if(synced){se.textContent='● FULLY SYNCED';se.style.background='rgba(16,185,129,0.12)';se.style.color='#10b981';se.style.borderColor='rgba(16,185,129,0.25)';}
+
+    const vd=await fetchValidators();
+    S.latestHeight=parseInt(vd.block_height);
+    S.totalPower=vd.validators.reduce((s,v)=>s+parseInt(v.voting_power),0);
+    S.validators=vd.validators.map((v,i)=>({
+      address:v.address,moniker:null,
+      votingPower:parseInt(v.voting_power),
+      missHistory:[],colorIdx:i%COLORS.length
+    }));
+
+    await fetchMonikers();
+
+    const h=S.latestHeight;
+    for(let i=0;i<10;i++) await processBlock(h-i,i===0);
+
+    S.initialized=true;
+    hideLoader();
+    renderAll();
+  }catch(e){
+    console.error('Init error',e);
+    useDemoData();
+    S.initialized=true;
+    hideLoader();
+    renderAll();
+  }
+}
+
+async function processBlock(height,isNew=false){
+  try{
+    const [bd,cd]=await Promise.all([fetchBlock(height),fetchCommit(height)]);
+    const sigs=cd.signed_header?.commit?.signatures||[];
+    const sigSet=new Set(sigs.filter(s=>s.validator_address).map(s=>s.validator_address));
+
+    S.validators.forEach(v=>{
+      const missed=!sigSet.has(v.address);
+      v.missHistory.unshift(missed?0:1);
+      if(v.missHistory.length>10)v.missHistory.pop();
+    });
+
+    const missCount=S.validators.filter(v=>v.missHistory[0]===0).length;
+    const blockTime=new Date(bd.block.header.time);
+    let hash=cd.signed_header?.header?.app_hash||'';
+
+    if(isNew&&S.lastBlockTime){
+      const diff=blockTime-S.lastBlockTime;
+      if(diff>0&&diff<30000){S.blockTimes.unshift(diff);if(S.blockTimes.length>20)S.blockTimes.pop();}
+    }
+    if(isNew)S.lastBlockTime=blockTime;
+
+    const info={height,time:blockTime,proposer:bd.block.header.proposer_address,txs:bd.block.data?.txs?.length||0,missCount,hash:hash.slice(0,16)+'...'};
+
+    if(isNew&&height>S.latestHeight){
+      S.latestHeight=height;
+      S.blocks.unshift(info);
+      if(missCount>0)showToast(`${missCount} validator(s) missed block #${height}`,`Block ${height}`);
+    }else if(!isNew){
+      S.blocks.push(info);
+    }
+    if(S.blocks.length>30)S.blocks.pop();
+  }catch(e){console.warn('Block error',height,e);}
+}
+
+// RENDER ALL
+function renderAll(){
+  renderStats();
+  renderTable();
+  renderFeed();
+  renderExplorer();
+  renderCharts();
+  renderLeaderboard();
+  renderEconomics();
+  renderHealth();
+  document.getElementById('footerUpdate').textContent='Updated '+new Date().toLocaleTimeString();
+}
+
+function renderStats(){
+  document.getElementById('statBlock').textContent=S.latestHeight?S.latestHeight.toLocaleString():'—';
+  const avg=S.blockTimes.length?Math.round(S.blockTimes.reduce((a,b)=>a+b,0)/S.blockTimes.length):null;
+  document.getElementById('statBlockTime').textContent=avg?`avg ${avg}ms block time`:'avg — ms';
+  document.getElementById('statVals').textContent=S.validators.length||'—';
+  const lastMiss=S.validators.filter(v=>v.missHistory[0]===0).length;
+  document.getElementById('statMissing').textContent=`${lastMiss} missing last block`;
+  const tot=S.validators.length*10;
+  const totM=S.validators.reduce((s,v)=>s+v.missHistory.filter(x=>x===0).length,0);
+  document.getElementById('statMissRate').textContent=tot>0?((totM/tot)*100).toFixed(1)+'%':'—';
+  const h=tot>0?(100-totM/tot*100).toFixed(1):null;
+  document.getElementById('statHealth').textContent=h?h+'%':'—';
+  document.getElementById('statHealthSub').textContent=h>95?'excellent':h>80?'good':'needs attention';
+  document.getElementById('statTotalPower').textContent=fmtPower(S.totalPower);
+}
+
+function renderTable(){
+  const tb=document.getElementById('valTable');
+  tb.innerHTML='';
+  S.validators.forEach((v,i)=>{
+    const name=v.moniker||shortAddr(v.address);
+    const pPct=S.totalPower>0?(v.votingPower/S.totalPower*100):0;
+    const misses=v.missHistory.filter(x=>x===0).length;
+    const ups=v.missHistory.filter(x=>x===1).length;
+    const upPct=v.missHistory.length>0?((ups/v.missHistory.length)*100).toFixed(0):100;
+    const uCls=upPct>=90?'uptime-high':upPct>=70?'uptime-med':'uptime-low';
+    const rCls=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const dots=Array.from({length:10},(_,di)=>{
+      const val=v.missHistory[di];
+      if(val===undefined)return`<div class="miss-dot" style="background:rgba(255,255,255,0.06)"></div>`;
+      return`<div class="miss-dot ${val===1?'ok':'miss'}"></div>`;
+    }).join('');
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td><div class="rank-badge ${rCls}">${i+1}</div></td>
+      <td><div class="val-identity">
+        <div class="val-avatar" style="background:${COLORS[v.colorIdx]}">${name.charAt(0).toUpperCase()}</div>
+        <div><div class="val-name">${name}</div><div class="val-addr">${shortAddr(v.address)}</div></div>
+      </div></td>
+      <td><div class="power-wrap">
+        <div class="power-bar-bg"><div class="power-bar-fill" style="width:${Math.min(pPct*5,100)}%"></div></div>
+        <span class="power-val">${fmtPower(v.votingPower)}</span>
+      </div></td>
+      <td><span class="uptime-pct ${uCls}">${upPct}%</span></td>
+      <td><div class="miss-dots">${dots}</div></td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${misses>0?'#ef4444':'#10b981'}">${misses}</span></td>
+    </tr>`);
+  });
+}
+
+function renderFeed(){
+  const feed=document.getElementById('blockFeed');
+  feed.innerHTML='';
+  S.blocks.slice(0,25).forEach((b,i)=>{
+    const name=resolveProposer(b.proposer);
+    feed.insertAdjacentHTML('beforeend',`<div class="block-item ${i===0?'new-block':''}">
+      <div class="block-row1">
+        <div class="block-num">#${b.height.toLocaleString()}</div>
+        <div class="block-ago">${timeAgo(b.time)}</div>
+      </div>
+      <div class="block-row2">
+        <div class="block-prop">⚡ ${name}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${b.missCount>0?`<div class="block-miss-badge">⚠️ ${b.missCount}</div>`:''}
+          <div class="block-txs">${b.txs} txs</div>
+        </div>
+      </div>
+    </div>`);
+  });
+}
+
+function renderExplorer(){
+  const tb=document.getElementById('explorerTable');
+  tb.innerHTML='';
+  S.blocks.slice(0,15).forEach(b=>{
+    tb.insertAdjacentHTML('beforeend',`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+      <td style="padding:12px 18px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;background:linear-gradient(135deg,#7c3aed,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">#${b.height.toLocaleString()}</span></td>
+      <td style="padding:12px 18px;"><span class="exp-hash">${b.hash}</span></td>
+      <td style="padding:12px 18px;color:var(--text2);font-size:12px;font-weight:500;">${resolveProposer(b.proposer)}</td>
+      <td style="padding:12px 18px;"><div class="tx-badge">${b.txs} txs</div></td>
+      <td style="padding:12px 18px;">${b.missCount>0?`<div class="miss-warn">⚠️ ${b.missCount}</div>`:'<span style="color:var(--g1);font-size:12px;font-family:JetBrains Mono,monospace">✓ 0</span>'}</td>
+      <td style="padding:12px 18px;"><span class="exp-time">${timeAgo(b.time)}</span></td>
+    </tr>`);
+  });
+}
+
+function renderCharts(){
+  const md=S.blocks.slice(0,20).reverse().map(b=>b.missCount);
+  const ml=S.blocks.slice(0,20).reverse().map(b=>`#${b.height}`);
+  missChart.data.labels=ml;missChart.data.datasets[0].data=md;missChart.update('none');
+
+  const bd=S.blockTimes.slice(0,20).reverse();
+  btChart.data.labels=bd.map((_,i)=>`-${bd.length-i}`);
+  btChart.data.datasets[0].data=bd;btChart.update('none');
+}
+
+function renderHealth(){
+  const tot=S.validators.length*10;
+  const totM=S.validators.reduce((s,v)=>s+v.missHistory.filter(x=>x===0).length,0);
+  const h=tot>0?(100-totM/tot*100):100;
+  document.getElementById('healthPct').textContent=h.toFixed(1)+'%';
+  healthChart.data.datasets[0].data=[h,100-h];
+  healthChart.data.datasets[0].backgroundColor=[
+    h>95?'rgba(16,185,129,0.85)':h>80?'rgba(245,158,11,0.85)':'rgba(239,68,68,0.85)',
+    'rgba(255,255,255,0.05)'
+  ];
+  healthChart.update('none');
+  document.getElementById('hStatActive').textContent=S.validators.length;
+  document.getElementById('hStatMiss').textContent=S.validators.filter(v=>v.missHistory[0]===0).length;
+  document.getElementById('hStatBlocks').textContent=S.latestHeight.toLocaleString();
+  document.getElementById('hStatAvgMiss').textContent=S.validators.length>0?(totM/S.validators.length).toFixed(1):'0';
+}
+
+function renderLeaderboard(){
+  function mkItem(v,rank,reverse){
+    const misses=v.missHistory.filter(x=>x===0).length;
+    const ups=v.missHistory.filter(x=>x===1).length;
+    const score=v.missHistory.length>0?(ups/v.missHistory.length*100):100;
+    const name=v.moniker||shortAddr(v.address);
+    const emoji=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+    const rCls=rank===1?'g':rank===2?'s':rank===3?'b':'n';
+    const mCls=misses===0?'color:var(--g1)':misses<=2?'color:var(--y1)':'color:var(--r1)';
+    const barGrad=reverse?'linear-gradient(135deg,#ef4444,#f59e0b)':'linear-gradient(135deg,#10b981,#06b6d4)';
+    const barW=reverse?(100-score):score;
+    return`<div class="lb-item">
+      <div class="lb-rank ${rCls}">${emoji}</div>
+      <div class="lb-avatar" style="background:${COLORS[v.colorIdx]}">${name.charAt(0)}</div>
+      <div class="lb-info">
+        <div class="lb-name">${name}</div>
+        <div class="lb-score-row">
+          <div class="lb-score-bar-bg"><div class="lb-score-bar" style="width:${barW}%;background:${barGrad}"></div></div>
+          <span class="lb-score-txt" style="${reverse?mCls:'color:var(--g1)'}">${score.toFixed(0)}%</span>
+        </div>
+      </div>
+      <div class="lb-miss-count" style="${mCls}">${misses}<br><span style="color:var(--text3);font-size:9px;">misses</span></div>
+    </div>`;
+  }
+  const byUp=[...S.validators].sort((a,b)=>b.missHistory.filter(x=>x===1).length-a.missHistory.filter(x=>x===1).length);
+  document.getElementById('lbBest').innerHTML=byUp.slice(0,10).map((v,i)=>mkItem(v,i+1,false)).join('');
+  const byMiss=[...S.validators].sort((a,b)=>b.missHistory.filter(x=>x===0).length-a.missHistory.filter(x=>x===0).length);
+  document.getElementById('lbWorst').innerHTML=byMiss.slice(0,10).map((v,i)=>mkItem(v,i+1,true)).join('');
+}
+
+function renderEconomics(){
+  document.getElementById('econBonded').textContent=fmtPower(S.totalPower);
+  document.getElementById('econBondedSub').textContent=`${S.validators.length} bonded validators`;
+  const avg=S.validators.length>0?Math.round(S.totalPower/S.validators.length):0;
+  document.getElementById('econAvgPower').textContent=fmtPower(avg);
+  if(S.validators.length>0){
+    const top=S.validators[0];
+    document.getElementById('econTopShare').textContent=S.totalPower>0?(top.votingPower/S.totalPower*100).toFixed(2)+'%':'—';
+    document.getElementById('econTopName').textContent=top.moniker||shortAddr(top.address);
+  }
+  let cum=0,nak=0;
+  const byPow=[...S.validators].sort((a,b)=>b.votingPower-a.votingPower);
+  for(const v of byPow){cum+=v.votingPower;nak++;if(cum>=S.totalPower*0.33)break;}
+  document.getElementById('econNakamoto').textContent=nak;
+
+  const top10=byPow.slice(0,10);
+  powerChart.data.labels=top10.map(v=>v.moniker||shortAddr(v.address));
+  powerChart.data.datasets[0].data=top10.map(v=>v.votingPower);
+  powerChart.update('none');
+}
+
+// POLLING
+async function poll(){
+  try{
+    const vd=await fetchValidators();
+    const nh=parseInt(vd.block_height);
+    if(nh>S.latestHeight){
+      S.totalPower=vd.validators.reduce((s,v)=>s+parseInt(v.voting_power),0);
+      vd.validators.forEach((v,i)=>{
+        let ex=S.validators.find(sv=>sv.address===v.address);
+        if(ex)ex.votingPower=parseInt(v.voting_power);
+        else S.validators.push({address:v.address,moniker:null,votingPower:parseInt(v.voting_power),missHistory:[],colorIdx:i%COLORS.length});
+      });
+      await processBlock(nh,true);
+      renderAll();
+    }
+  }catch(e){console.warn('Poll error',e);}
+}
+
+// HELPERS
+function fmtPower(n){
+  if(!n||isNaN(n))return'—';
+  if(n>=1e9)return(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(2)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
+function shortAddr(a){if(!a)return'—';return a.slice(0,6)+'...'+a.slice(-6);}
+function resolveProposer(addr){
+  if(!addr)return'Unknown';
+  const v=S.validators.find(sv=>sv.address===addr);
+  return v&&v.moniker?v.moniker:shortAddr(addr);
+}
+function timeAgo(date){
+  if(!date)return'—';
+  const d=Math.floor((Date.now()-new Date(date))/1000);
+  if(d<60)return d+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';
+  return Math.floor(d/3600)+'h ago';
+}
+function showToast(title,body){
+  const el=document.createElement('div');
+  el.className='toast';
+  el.innerHTML=`<div class="toast-title">⚠️ ${title}</div><div class="toast-body">${body}</div>`;
+  document.getElementById('toastArea').prepend(el);
+  setTimeout(()=>el.remove(),6000);
+}
+function hideLoader(){
+  setTimeout(()=>{
+    document.getElementById('loader').classList.add('hidden');
+    setTimeout(()=>document.getElementById('loader').style.display='none',700);
+  },2400);
+}
+
+// DEMO FALLBACK
+function useDemoData(){
+  const names=['OneNov','CosmosPilot','AIValidator','NetGuard','StakeMaster','NodeRunner','Consensus','Quantum','DeepStake','DataNode','BlockForge','Meridian','Infinity','PrimeNode','StakePool','CosmicVal','NexusNode','Orbital','Genesis','ProofPoint'];
+  S.validators=Array.from({length:100},(_,i)=>({
+    address:[...Array(40)].map(()=>'0123456789ABCDEF'[Math.floor(Math.random()*16)]).join(''),
+    moniker:names[i%names.length]+(i>=names.length?` ${Math.floor(i/names.length)+1}`:''),
+    votingPower:Math.floor(Math.random()*25000000)+1000000,
+    missHistory:Array.from({length:10},()=>Math.random()>0.05?1:0),
+    colorIdx:i%COLORS.length,
+  }));
+  S.totalPower=S.validators.reduce((s,v)=>s+v.votingPower,0);
+  S.latestHeight=564966;
+  const now=Date.now();
+  S.blocks=Array.from({length:20},(_,i)=>({
+    height:564966-i,time:new Date(now-i*6000),
+    proposer:S.validators[Math.floor(Math.random()*100)].address,
+    txs:Math.floor(Math.random()*12),missCount:Math.floor(Math.random()*3),
+    hash:[...Array(16)].map(()=>'0123456789abcdef'[Math.floor(Math.random()*16)]).join('')+'...',
+  }));
+  S.blockTimes=Array.from({length:20},()=>Math.floor(Math.random()*2000)+4000);
+  S.lastBlockTime=new Date();
+}
+
+// BOOT
+initCharts();
+init().then(()=>setInterval(poll,6000));
+</script>
+</body>
+</html>
